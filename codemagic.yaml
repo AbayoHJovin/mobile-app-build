@@ -1,0 +1,157 @@
+workflows:
+  # ============================================
+  # Android Workflow
+  # ============================================
+  react-native-android:
+    name: React Native Android
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+
+    environment:
+      android_signing:
+        - keystore_reference
+      # groups:
+      #   - google_play # Commented out - not needed for testing without publishing
+      vars:
+        PACKAGE_NAME: 'com.iotdfu'
+      node: 20
+
+    triggering:
+      events:
+        - push
+        - tag
+        - pull_request
+      branch_patterns:
+        - pattern: 'main'
+          include: true
+          source: true
+        - pattern: 'develop'
+          include: true
+          source: true
+
+    scripts:
+      - name: Install npm dependencies
+        script: |
+          npm install
+
+      - name: Set Android SDK location
+        script: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/android/local.properties"
+
+      - name: Build Android debug (APK) for testing
+        script: |
+          cd android
+          ./gradlew assembleDebug
+
+      - name: Build Android release (APK)
+        script: |
+          cd android
+          ./gradlew assembleRelease
+
+      - name: Build Android App Bundle (AAB)
+        script: |
+          cd android
+          ./gradlew bundleRelease
+
+    artifacts:
+      - android/app/build/outputs/**/*.apk
+      - android/app/build/outputs/**/*.aab
+
+    publishing:
+      email:
+        recipients:
+          - abayohirwajovin@gmail.com
+        notify:
+          success: true
+          failure: true
+      
+      # Uncomment to publish to Google Play (requires service account setup)
+      # google_play:
+      #   credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
+      #   track: internal
+      #   submit_as_draft: true
+
+  # ============================================
+  # iOS Workflow
+  # ============================================
+  react-native-ios:
+    name: React Native iOS
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+
+    environment:
+      ios_signing:
+        distribution_type: development
+        bundle_identifier: com.iotdfu
+      # groups:
+      #   - app_store_credentials # Commented out - not needed for development builds
+      vars:
+        XCODE_WORKSPACE: 'IotDfu.xcworkspace'
+        XCODE_SCHEME: 'IotDfu'
+        BUNDLE_ID: 'com.iotdfu'
+      node: 20
+      xcode: latest
+      cocoapods: default
+
+    triggering:
+      events:
+        - push
+        - tag
+        - pull_request
+      branch_patterns:
+        - pattern: 'main'
+          include: true
+          source: true
+        - pattern: 'develop'
+          include: true
+          source: true
+
+    scripts:
+      - name: Install npm dependencies
+        script: |
+          npm install
+
+      - name: Install Ruby dependencies (bundler)
+        script: |
+          bundle install
+
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios
+          bundle exec pod install
+
+      - name: Set up code signing settings on Xcode project
+        script: |
+          xcode-project use-profiles
+
+      - name: Build iOS IPA for distribution
+        script: |
+          xcode-project build-ipa \
+            --workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+
+    publishing:
+      email:
+        recipients:
+          - abayohirwajovin@gmail.com
+        notify:
+          success: true
+          failure: true
+
+      # Uncomment to publish to App Store Connect (requires API key setup)
+      # app_store_connect:
+      #   auth: integration
+      #
+      #   # Configuration related to TestFlight (optional)
+      #   submit_to_testflight: true
+      #   beta_groups:
+      #     - Internal Testers
+      #
+      #   # Configuration related to App Store (optional)
+      #   submit_to_app_store: false
