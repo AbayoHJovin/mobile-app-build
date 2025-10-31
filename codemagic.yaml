@@ -8,10 +8,8 @@ workflows:
     instance_type: mac_mini_m2
 
     environment:
-      # android_signing:
-      #   - keystore_reference  # Commented out - not needed for debug builds
-      # groups:
-      #   - google_play # Commented out - not needed for testing without publishing
+      android_signing:
+        - keystore_reference  # Now configured in Codemagic dashboard
       vars:
         PACKAGE_NAME: 'com.iotdfu'
       node: 20
